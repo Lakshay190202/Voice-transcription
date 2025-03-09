@@ -1,4 +1,5 @@
 'use client';
+import { resolve } from "path";
 import React, { useState, useEffect, useRef } from "react";
 
 
@@ -6,24 +7,42 @@ export const useRecordVoice = () => {
     const [recording, setRecording] = useState(false);
     const [mediaRecorder, setMediaRecorder] = useState<any>(null);
     const chunks = useRef<Blob[]>([]);
+    const [audioBlob, setAudioBlob] = useState<Blob | null>(null);
 
 
     const startrecording = () => {
         if (mediaRecorder) {
-            mediaRecorder.start();
+            chunks.current = [];
+            setAudioBlob(null);
+            mediaRecorder.start(200);
             setRecording(true);
+            console.log("Recording started");
         }
     };
 
     const stoprecording = () => {
-        if (mediaRecorder) {
-            mediaRecorder.stop();
-            setRecording(false);
-        }
+        return new Promise<Blob | null>((resolve) => {
+            if (mediaRecorder && recording) {
 
-    }
+                const habdleStop = () => {
+                    const blob = new Blob(chunks.current, { type: 'audio/wav' });
+                    setAudioBlob(blob);
+                    resolve(blob);
+                    mediaRecorder.removeEventListener('stop', habdleStop);
+                };
+                mediaRecorder.addEventListener('stop', habdleStop);
+                mediaRecorder.stop();
+                setRecording(false);
+                console.log("Recording stopped");
 
-    const initialMediaRecorder = (stream: any) => {
+            } else {
+                resolve(null);
+            }
+
+        });
+    };
+
+    const initialMediaRecorder = (stream: MediaStream) => {
         chunks.current = [];
         const mediaRecorder = new MediaRecorder(stream);
 
@@ -33,24 +52,36 @@ export const useRecordVoice = () => {
         };
         mediaRecorder.ondataavailable = (ev) => {
             chunks.current.push(ev.data);
+
         };
-
+        console.log(chunks.current)
         mediaRecorder.onstop = () => {
-            const audioBlob = new Blob(chunks.current, { type: 'audio/wav' });
+            const blob = new Blob(chunks.current, { type: 'audio/wav' });
+            setAudioBlob(blob);
 
-            //send to backend
 
         };
         setMediaRecorder(mediaRecorder);
+        console.log("Media recorder initialized");
     };
-
 
     useEffect(() => {
         if (typeof window !== "undefined") {
             navigator.mediaDevices.getUserMedia({ audio: true })
-                .then(initialMediaRecorder);
+                .then(initialMediaRecorder)
+                .catch(err => {
+                    console.error("Error accessing microphone:", err);
+                });
         }
+
+        return () => {
+            if (mediaRecorder) {
+                if (recording) {
+                    mediaRecorder.stop();
+                }
+            }
+        };
     }, []);
 
-    return { startrecording, stoprecording, recording };
-}
+    return { startrecording, stoprecording, recording, audioBlob };
+};

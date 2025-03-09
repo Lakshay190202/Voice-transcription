@@ -6,12 +6,7 @@ import { useRecordVoice } from "./components/page";
 
 
 export default function Home() {
-  //const [audio, setAudio] = useState<any>(null);
-  //const [transciption, settransciption] = useState<any>(null);
-
   const { startrecording, stoprecording, recording, audioBlob } = useRecordVoice();
-  const [record, setRecord] = useState(false);
-  const [file, setFile] = useState<any>(null);
   const [transciption, setTransciption] = useState<any>(null);
   const [isLoading, setIsLoading] = useState<Boolean>(false);
 
@@ -20,20 +15,24 @@ export default function Home() {
   }
 
   const handleStopRecording = async () => {
-    stoprecording();
     setIsLoading(true);
-    try {
-      if (audioBlob) {
-        const formData = new FormData();
-        formData.append('audio', audioBlob);
 
+    try {
+      const blob = await stoprecording();
+      console.log("audioblob from stoprecording",blob);
+
+      if (blob) {
+        const formData = new FormData();
+        formData.append('audio', blob);
+        
         const response = await fetch('http://localhost:5000/transcribe', {
           method: 'POST',
           body: formData,
         });
+
         if (response.ok) {
           const data = await response.json();
-          setTransciption(data.transcription0);
+          setTransciption(data.transcription);
         } else {
           console.error('Failed to transcribe');
         }
@@ -46,11 +45,34 @@ export default function Home() {
     }
   }
 
-  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files && e.target.files[0]) {
-      setFile(e.target.files[0]);
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files) {
+      setIsLoading(true);
+      const files = Array.from(e.target.files);
+      for (const file of files) {
+        const formData = new FormData();
+        formData.append('audio', file);
+        try {
+          const response = await fetch('http://localhost:5000/transcribe', {
+            method: 'POST',
+            body: formData,
+          });
+
+          if (response.ok) {
+            const data = await response.json();
+            setTransciption((prev: string) => prev + "\n" + data.transcription);
+          } else {
+            console.error('Failed to transcribe');
+          }
+        } catch (error) {
+          console.error("error sending audio", error);
+        }
+      }
+      setIsLoading(false);
+
     }
   }
+
 
   return (
     <div className="flex flex-col items-center justify-center min-h-screen bg-gray-200">
@@ -64,26 +86,26 @@ export default function Home() {
 
           {recording ? (
             <>
-            {}
-            <div className=" flex items-center mr-2">
-              <div className="w-3 h-3 bg-red-500 rounded-full animate-pulse mr-1"></div>
-              <span className="text-red-500 font-medium">REC</span>
-            </div>
-            {}
-            <button
-              onClick={handleStopRecording}
-              className="bg-red-500 hover:bg-red-600 text-white font-bold py-2 px-4 rounded"
+              { }
+              <div className=" flex items-center mr-2">
+                <div className="w-3 h-3 bg-red-500 rounded-full animate-pulse mr-1"></div>
+                <span className="text-red-500 font-medium">REC</span>
+              </div>
+              { }
+              <button
+                onClick={handleStopRecording}
+                className="bg-red-500 hover:bg-red-600 text-white font-bold py-2 px-4 rounded"
               >
                 STOP
-            </button>
+              </button>
             </>
           ) : (
-            <svg 
-              xmlns="http://www.w3.org/2000/svg" 
-              onClick={handleStartRecording} 
-              className="h-8 w-8 border-2 mr-2 p-1 text-red-500 cursor-pointer hover:bg-red-50" 
-              fill="none" 
-              viewBox="0 0 24 24" 
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              onClick={handleStartRecording}
+              className="h-8 w-8 border-2 mr-2 p-1 text-red-500 cursor-pointer hover:bg-red-50"
+              fill="none"
+              viewBox="0 0 24 24"
               stroke="currentColor"
             >
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" />
@@ -92,19 +114,19 @@ export default function Home() {
 
           {/* File upload */}
           <label className="cursor-pointer">
-            <svg 
-              xmlns="http://www.w3.org/2000/svg" 
-              className="h-8 w-8 p-1 text-blue-500 border-2 hover:bg-blue-50" 
-              fill="none" 
-              viewBox="0 0 24 24" 
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              className="h-8 w-8 p-1 text-blue-500 border-2 hover:bg-blue-50"
+              fill="none"
+              viewBox="0 0 24 24"
               stroke="currentColor"
             >
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
             </svg>
-            <input 
-              type="file" 
-              accept="audio/*" 
-              className="hidden" 
+            <input
+              type="file"
+              accept="audio/*"
+              className="hidden"
               onChange={handleFileUpload}
             />
           </label>
