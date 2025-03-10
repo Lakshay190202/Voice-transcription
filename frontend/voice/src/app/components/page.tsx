@@ -24,13 +24,13 @@ export const useRecordVoice = () => {
         return new Promise<Blob | null>((resolve) => {
             if (mediaRecorder && recording) {
 
-                const habdleStop = () => {
+                const handleStop = () => {
                     const blob = new Blob(chunks.current, { type: 'audio/wav' });
                     setAudioBlob(blob);
                     resolve(blob);
-                    mediaRecorder.removeEventListener('stop', habdleStop);
+                    mediaRecorder.removeEventListener('stop', handleStop);
                 };
-                mediaRecorder.addEventListener('stop', habdleStop);
+                mediaRecorder.addEventListener('stop', handleStop);
                 mediaRecorder.stop();
                 setRecording(false);
                 console.log("Recording stopped");
@@ -71,6 +71,8 @@ export const useRecordVoice = () => {
                 .then(initialMediaRecorder)
                 .catch(err => {
                     console.error("Error accessing microphone:", err);
+                    alert("Microphone access is required for recording. Please enable it in your device settings.");
+
                 });
         }
 
